@@ -62,6 +62,10 @@ failure produces a clear error instead of an infinite loop.
 
 ### Gameplay Contract
 
+Real POSIX terminal sessions use the keyboard-driven interaction specified in
+`specs/interactive-terminal-ui.md`. The line commands below remain available when input or
+output is redirected.
+
 - The startup menu accepts sizes 4, 9, and 16 and difficulties Easy, Medium, and Hard.
 - set <row> <column> <value> places or replaces a value in a non-given cell.
 - clear <row> <column> clears a non-given cell.
@@ -87,10 +91,10 @@ failure produces a clear error instead of an infinite loop.
 
 ~~~bash
 # Build the game
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp -o app
+g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp interactive_game.cpp terminal_ui.cpp -o app
 
 # Build unit tests
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I. tests/test_main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp -o test_app
+g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I. tests/test_main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp interactive_game.cpp terminal_ui.cpp -o test_app
 
 # Run unit tests
 ./test_app
@@ -112,7 +116,9 @@ main.cpp                    Thin application entry point
 board.hpp / board.cpp       Grid storage, rules, candidates, and value symbols
 solver.hpp / solver.cpp     MRV backtracking and bounded solution counting
 puzzle_generator.hpp/.cpp   Random solved-board and unique-puzzle generation
-game.hpp / game.cpp         Terminal UI, parsing, menus, and game session
+game.hpp / game.cpp         Shared game interface, menus, and line-command mode
+interactive_game.cpp        Keyboard-driven session and ANSI rendering
+terminal_ui.hpp/.cpp        Raw terminal mode, key decoding, and selection
 tests/test_main.cpp         Unit and integration-style tests
 tests/e2e_cli.sh            Scripted terminal behavior checks
 test_runner.sh              Complete build-and-test entry point
@@ -155,6 +161,8 @@ private:
   deterministic seeds, bounded failures, and all nine size/difficulty combinations.
 - Game: menu parsing, command parsing, immutable clues, conflict rejection, clear/check/help/
   quit, EOF, malformed input, and victory output.
+- Terminal UI: arrow decoding, clamped movement, direct values, blue/bracket selection,
+  cursor restoration, and redirected-input fallback.
 
 Deterministic fixed seeds are the correctness baseline. A small repeated-random smoke test may
 supplement them but must not be the only proof.
@@ -222,6 +230,9 @@ brittle shell transcript tied to one random puzzle.
 - solver.hpp and solver.cpp
 - puzzle_generator.hpp and puzzle_generator.cpp
 - game.hpp and game.cpp
+- interactive_game.cpp
+  - Owns the keyboard-driven gameplay loop and ANSI board renderer.
+- terminal_ui.hpp and terminal_ui.cpp
 - tests/test_main.cpp
 - tests/e2e_cli.sh
 
@@ -471,8 +482,8 @@ Estimated scope: Small
 Run from the repository root in this order:
 
 ~~~bash
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp -o app
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I. tests/test_main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp -o test_app
+g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp interactive_game.cpp terminal_ui.cpp -o app
+g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I. tests/test_main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp interactive_game.cpp terminal_ui.cpp -o test_app
 ./test_app
 bash tests/e2e_cli.sh
 bash test_runner.sh

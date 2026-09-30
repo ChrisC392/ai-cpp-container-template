@@ -4,6 +4,7 @@
 #include <cctype>
 #include <charconv>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <system_error>
@@ -59,7 +60,13 @@ int Game::run() {
 
   output_ << "Generating puzzle...\n";
   PuzzleGenerator generator(randomEngine_);
-  return play(generator.generate(size, difficulty));
+  Puzzle puzzle = generator.generate(size, difficulty);
+  if (&input_ == &std::cin && &output_ == &std::cout &&
+      standardStreamsAreInteractive()) {
+    RawTerminalMode rawTerminal;
+    return playInteractive(puzzle);
+  }
+  return play(puzzle);
 }
 
 int Game::play(Puzzle puzzle) {

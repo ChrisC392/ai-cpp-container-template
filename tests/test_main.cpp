@@ -2,6 +2,7 @@
 #include "game.hpp"
 #include "puzzle_generator.hpp"
 #include "solver.hpp"
+#include "terminal_ui.hpp"
 
 #include <exception>
 #include <functional>
@@ -71,6 +72,66 @@ int runTests(const std::vector<Test>& tests) {
 
 int main() {
   const std::vector<Test> tests{
+      {"terminal input decodes arrow and delete sequences", [] {
+         std::istringstream input(
+             "\x1b[A\x1b[B\x1b[D\x1b[C\x1b[3~");
+
+         expect(readTerminalKey(input).type == TerminalKeyType::Up,
+                "escape A must decode as up");
+         expect(readTerminalKey(input).type == TerminalKeyType::Down,
+                "escape B must decode as down");
+         expect(readTerminalKey(input).type == TerminalKeyType::Left,
+                "escape D must decode as left");
+         expect(readTerminalKey(input).type == TerminalKeyType::Right,
+                "escape C must decode as right");
+         expect(readTerminalKey(input).type == TerminalKeyType::Clear,
+                "escape 3 tilde must decode as Delete");
+       }},
+      {"terminal input decodes actions values and EOF", [] {
+         std::istringstream input("5g0\x7f\r?q\x03x");
+
+         const TerminalKey digit = readTerminalKey(input);
+         const TerminalKey letter = readTerminalKey(input);
+         expect(digit.type == TerminalKeyType::Value && digit.character == '5',
+                "digit must decode as a value");
+         expect(letter.type == TerminalKeyType::Value && letter.character == 'g',
+                "letter must retain its value character");
+         expect(readTerminalKey(input).type == TerminalKeyType::Clear,
+                "zero must clear a cell");
+         expect(readTerminalKey(input).type == TerminalKeyType::Clear,
+                "Backspace must clear a cell");
+         expect(readTerminalKey(input).type == TerminalKeyType::Check,
+                "Enter must check the puzzle");
+         expect(readTerminalKey(input).type == TerminalKeyType::Help,
+                "question mark must show help");
+         expect(readTerminalKey(input).type == TerminalKeyType::Quit,
+                "Q must quit");
+         expect(readTerminalKey(input).type == TerminalKeyType::Quit,
+                "Ctrl-C must quit cleanly");
+         expect(readTerminalKey(input).type == TerminalKeyType::Unknown,
+                "unsupported character must be ignored");
+         expect(readTerminalKey(input).type == TerminalKeyType::EndOfInput,
+                "EOF must be represented explicitly");
+       }},
+      {"terminal selection moves and clamps at board edges", [] {
+         CellSelection selection;
+         selection.move(TerminalKeyType::Up, 4);
+         selection.move(TerminalKeyType::Left, 4);
+         expect(selection.row() == 0 && selection.column() == 0,
+                "selection must not move above or left of the board");
+
+         selection.move(TerminalKeyType::Right, 4);
+         selection.move(TerminalKeyType::Down, 4);
+         expect(selection.row() == 1 && selection.column() == 1,
+                "arrow keys must move one cell");
+
+         for (int step = 0; step < 10; ++step) {
+           selection.move(TerminalKeyType::Right, 4);
+           selection.move(TerminalKeyType::Down, 4);
+         }
+         expect(selection.row() == 3 && selection.column() == 3,
+                "selection must clamp at the lower-right edge");
+       }},
       {"board accepts supported sizes", [] {
          const Board small(4);
          const Board classic(9);
@@ -549,6 +610,73 @@ int main() {
          }
          expect(renderedRows == 32,
                 "16 rows must render before and after the winning move");
+       }},
+      {"interactive game highlights and moves the selection", [] {
+         const Board starting =
+             boardFromRows({".234", "3412", "2143", "4321"});
+         const Board solution =
+             boardFromRows({"1234", "3412", "2143", "4321"});
+         std::istringstream input("\x1b[C\x1b[Bq");
+         std::ostringstream output;
+         std::mt19937 engine(8);
+         Game game(input, output, engine);
+
+         expect(game.playInteractive(Puzzle{starting, solution}) == 0,
+                "interactive quit must succeed");
+         const std::string transcript = output.str();
+         expect(transcript.find("\x1b[44m\x1b[97m[.]\x1b[0m") !=
+                    std::string::npos,
+                "initial selection must be blue and bracketed");
+         expect(transcript.find("\x1b[44m\x1b[97m[2]\x1b[0m") !=
+                    std::string::npos,
+                "right arrow must select the next cell");
+         expect(transcript.find("\x1b[44m\x1b[97m[4]\x1b[0m") !=
+                    std::string::npos,
+                "down arrow must select the cell below");
+         expect(transcript.find("\x1b[?25l") != std::string::npos &&
+                    transcript.find("\x1b[?25h") != std::string::npos,
+                "interactive play must hide and restore the text cursor");
+       }},
+      {"interactive game validates direct entry and detects victory", [] {
+         const Board starting =
+             boardFromRows({".234", "3412", "2143", "4321"});
+         const Board solution =
+             boardFromRows({"1234", "3412", "2143", "4321"});
+         std::istringstream input("21");
+         std::ostringstream output;
+         std::mt19937 engine(9);
+         Game game(input, output, engine);
+
+         game.playInteractive(Puzzle{starting, solution});
+         const std::string transcript = output.str();
+         expect(transcript.find("conflicts") != std::string::npos,
+                "conflicting direct value must be rejected");
+         expect(transcript.find("Congratulations") != std::string::npos,
+                "correct direct value must complete the puzzle");
+       }},
+      {"interactive game protects clues and supports clear check and help", [] {
+         const Board starting =
+             boardFromRows({"....", "..12", "2143", "4321"});
+         const Board solution =
+             boardFromRows({"1234", "3412", "2143", "4321"});
+         std::istringstream input(
+             "3\x7f\x1b[C\x1b[C\x1b[B\x7f\r?q");
+         std::ostringstream output;
+         std::mt19937 engine(10);
+         Game game(input, output, engine);
+
+         game.playInteractive(Puzzle{starting, solution});
+         const std::string transcript = output.str();
+         expect(transcript.find("Value placed") != std::string::npos,
+                "direct value must be placed in an editable cell");
+         expect(transcript.find("Cell cleared") != std::string::npos,
+                "Backspace must clear an editable cell");
+         expect(transcript.find("original clue") != std::string::npos,
+                "Delete must not clear a clue");
+         expect(transcript.find("Puzzle is incomplete") != std::string::npos,
+                "Enter must check puzzle state");
+         expect(transcript.find("Arrow keys move") != std::string::npos,
+                "question mark must show interactive help");
        }},
   };
 

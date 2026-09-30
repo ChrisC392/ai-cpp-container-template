@@ -3,7 +3,8 @@
 The project uses no third-party test framework.
 
 - test_main.cpp contains small unit and integration-style checks for Board,
-  Solver, PuzzleGenerator, and Game.
+  Solver, PuzzleGenerator, Game, key decoding, selection movement, and ANSI
+  interactive rendering.
 - e2e_cli.sh drives the compiled app with deterministic input and checks the
   startup menus, help, malformed input, EOF, seed validation, and clean exit.
 - ../test_runner.sh builds with strict warnings and runs both test levels.

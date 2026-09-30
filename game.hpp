@@ -1,10 +1,12 @@
 #pragma once
 
 #include "puzzle_generator.hpp"
+#include "terminal_ui.hpp"
 
 #include <istream>
 #include <ostream>
 #include <random>
+#include <string>
 
 class Game {
 public:
@@ -13,11 +15,15 @@ public:
 
   int run();
   int play(Puzzle puzzle);
+  int playInteractive(Puzzle puzzle);
 
 private:
   bool chooseSize(int& size);
   bool chooseDifficulty(Difficulty& difficulty);
   void render(const Board& board);
+  void renderInteractive(const Board& board, const Board& startingBoard,
+                         const CellSelection& selection,
+                         const std::string& status);
   void printHelp();
 
   std::istream& input_;

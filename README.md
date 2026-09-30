@@ -28,7 +28,7 @@ yet grade puzzles by required solving techniques.
 With g++ installed:
 
 ~~~bash
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp -o app
+g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp interactive_game.cpp terminal_ui.cpp -o app
 ./app
 ~~~
 
@@ -51,7 +51,24 @@ Run the build commands from /usr/src inside the container.
 
 ## Playing
 
-Choose a board size and difficulty at startup. Coordinates shown by the game
+Choose a board size and difficulty at startup. In a POSIX terminal, the game
+switches to an interactive board with these controls:
+
+~~~text
+Arrow keys                  Move the selected cell
+1-9 or A-G                  Enter a value
+Backspace, Delete, or 0     Clear an editable cell
+Enter                       Check the puzzle
+?                           Show help
+Q or Ctrl-C                 Quit cleanly
+~~~
+
+The selected cell is bracketed and shown with a blue background. Original
+clues remain protected. Terminal settings and cursor visibility are restored
+when the game exits.
+
+When input or output is redirected, the game retains its line-command mode so
+scripts and accessibility tooling can use the following commands. Coordinates
 are 1-based.
 
 ~~~text
@@ -78,8 +95,8 @@ bash test_runner.sh
 Or run the checks separately:
 
 ~~~bash
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp -o app
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I. tests/test_main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp -o test_app
+g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp interactive_game.cpp terminal_ui.cpp -o app
+g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I. tests/test_main.cpp board.cpp solver.cpp puzzle_generator.cpp game.cpp interactive_game.cpp terminal_ui.cpp -o test_app
 ./test_app
 bash tests/e2e_cli.sh
 ~~~
@@ -92,6 +109,8 @@ bash tests/e2e_cli.sh
 - PuzzleGenerator creates a randomized complete board and removes clues only
   while exact solution counting proves uniqueness.
 - Game owns terminal rendering, menus, parsing, and session state.
+- Terminal UI decodes key sequences and restores POSIX terminal state through
+  RAII.
 - main.cpp parses an optional seed and starts the game.
 
 The detailed design and acceptance criteria are in

@@ -11,9 +11,9 @@ readonly compiler_flags=(
 )
 
 g++ "${compiler_flags[@]}" main.cpp board.cpp solver.cpp puzzle_generator.cpp \
-  game.cpp -o app
+  game.cpp interactive_game.cpp terminal_ui.cpp -o app
 g++ "${compiler_flags[@]}" -I. tests/test_main.cpp board.cpp solver.cpp \
-  puzzle_generator.cpp game.cpp -o test_app
+  puzzle_generator.cpp game.cpp interactive_game.cpp terminal_ui.cpp -o test_app
 
 ./test_app
 bash tests/e2e_cli.sh
